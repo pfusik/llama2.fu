@@ -1,0 +1,314 @@
+public abstract class Loader
+{
+	public abstract int ReadInt!();
+	public abstract float ReadFloat!();
+	public abstract void ReadFloats!(float[]! a, nint n);
+	public abstract void SkipBytes!(nint n);
+	internal float[]# AllocateAndReadFloats!(nint n)
+	{
+		float[]# a = new float[n];
+		ReadFloats(a, n);
+		return a;
+	}
+	public abstract string() ReadString!();
+}
+
+class Transformer
+{
+	int Dim;
+	int HiddenDim;
+	int Layers;
+	int Heads;
+	int KVHeads;
+	int VocabSize;
+	int SeqLen;
+	float[]# TokenEmbeddingTable;
+	float[]# RmsAttWeight;
+	float[]# RmsFfnWeight;
+    float[]# WQ;
+    float[]# WK;
+    float[]# WV;
+    float[]# WO;
+    float[]# W1;
+    float[]# W2;
+    float[]# W3;
+    float[]# RmsFinalWeight;
+    float[]# WCls;
+
+    float[]# X;
+    float[]# XB;
+    float[]# XB2;
+    float[]# HB;
+    float[]# HB2;
+    float[]# Q;
+    float[]# Att;
+    float[]# Logits;
+    float[]# KeyCache;
+    float[]# ValueCache;
+
+	public Transformer()
+	{
+	}
+
+	public void Load!(Loader! loader)
+	{
+		Dim = loader.ReadInt();
+		HiddenDim = loader.ReadInt();
+		Layers = loader.ReadInt();
+		Heads = loader.ReadInt();
+		KVHeads = loader.ReadInt();
+		int i = loader.ReadInt();
+		bool sharedWeights = i > 0;
+		VocabSize = Math.Abs(i);
+		SeqLen = loader.ReadInt();
+		TokenEmbeddingTable = loader.AllocateAndReadFloats(VocabSize * Dim);
+		nint n = Dim * Layers;
+		RmsAttWeight = loader.AllocateAndReadFloats(n);
+		int headSize = Dim / Heads;
+		WQ = loader.AllocateAndReadFloats(Heads * headSize * n);
+		WK = loader.AllocateAndReadFloats(KVHeads * headSize * n);
+		WV = loader.AllocateAndReadFloats(KVHeads * headSize * n);
+		WO = loader.AllocateAndReadFloats(Heads * headSize * n);
+		RmsFfnWeight = loader.AllocateAndReadFloats(n);
+		W1 = loader.AllocateAndReadFloats(HiddenDim * n);
+		W2 = loader.AllocateAndReadFloats(HiddenDim * n);
+		W3 = loader.AllocateAndReadFloats(HiddenDim * n);
+		RmsFinalWeight = loader.AllocateAndReadFloats(Dim);
+		if (sharedWeights)
+			WCls = TokenEmbeddingTable;
+		else {
+			loader.SkipBytes(SeqLen * headSize >> 1 << 3);
+			WCls = loader.AllocateAndReadFloats(VocabSize * Dim);
+		}
+
+		X = new float[Dim];
+		XB = new float[Dim];
+		XB2 = new float[Dim];
+		HB = new float[HiddenDim];
+		HB2 = new float[HiddenDim];
+		Q = new float[Dim];
+		Att = new float[Heads * SeqLen];
+		Logits = new float[VocabSize];
+		int cacheSize = Dim * KVHeads / Heads * Layers * SeqLen;
+		KeyCache = new float[cacheSize];
+		ValueCache = new float[cacheSize];
+	}
+
+	internal int GetVocabSize() => VocabSize;
+
+	static void RmsNorm(float[]! o, float[] x, float[] weight, int weightOffset, int size)
+	{
+		float ss =0;
+		for (int i = 0; i < size; i++)
+			ss += x[i] * x[i];
+		ss = 1 / Math.Sqrt(ss / size + 1e-5);
+		for (int i = 0; i < size; i++)
+			o[i] = ss * x[i] * weight[weightOffset + i];
+	}
+
+	static void SoftMax(float[]! x, int xOffset, int size)
+	{
+		float max = x[0];
+		for (int i = 1; i < size; i++) {
+			if (max < x[xOffset + i])
+				max = x[xOffset + i];
+		}
+		float sum = 0;
+		for (int i = 0; i < size; i++)
+			sum += x[xOffset + i] = Math.Exp(x[xOffset + i] - max);
+		for (int i = 0; i < size; i++)
+			x[xOffset + i] /= sum;
+	}
+
+	static void MatMul(float[]! o, int oOffset, float[] x, float[] w, int wOffset, int n, int d)
+	{
+		for (int i = 0; i < d; i++) {
+			float v = 0;
+			for (int j = 0; j < n; j++)
+				v += w[wOffset + i * n + j] * x[j];
+			o[oOffset + i] = v;
+		}
+	}
+
+	public float[] Forward!(int token, int pos)
+	{
+		int kvDim = Dim * KVHeads / Heads;
+		int kvMul = Heads / KVHeads;
+		int headSize = Dim / Heads;
+		TokenEmbeddingTable.CopyTo(token * Dim, X, 0, Dim);
+		for (int l = 0; l < Layers; l++) {
+			RmsNorm(XB, X, RmsAttWeight, l * Dim, Dim);
+
+			int loff = l * SeqLen * kvDim;
+			int k = loff + pos * kvDim;
+			MatMul(Q, 0, XB, WQ, l * Dim * Dim, Dim, Dim);
+			MatMul(KeyCache, k, XB, WK, l * Dim * kvDim, Dim, kvDim);
+			MatMul(ValueCache, k, XB, WV, l * Dim * kvDim, Dim, kvDim);
+
+			for (int i = 0; i < Dim; i += 2) {
+				float headDim = i % headSize;
+				float freq = Math.Pow(10000, -headDim / headSize);
+				float val = pos * freq;
+				float fcr = Math.Cos(val);
+				float fci = Math.Sin(val);
+				float v0 = Q[i];
+				float v1 = Q[i + 1];
+				Q[i] = v0 * fcr - v1 * fci;
+				Q[i + 1] = v0 * fci + v1 * fcr;
+				if (i < kvDim) {
+					v0 = KeyCache[k + i];
+					v1 = KeyCache[k + i + 1];
+					KeyCache[k + i] = v0 * fcr - v1 * fci;
+					KeyCache[k + i + 1] = v0 * fci + v1 * fcr;
+				}
+			}
+
+			for (int h = 0; h < Heads; h++) {
+				int q = h * headSize;
+				int att = h * SeqLen;
+				for (int t = 0; t <= pos; t++) {
+					k = loff + t * kvDim + h / kvMul * headSize;
+					float score = 0;
+					for (int i = 0; i < headSize; i++)
+						score += Q[q + i] * KeyCache[k + i];
+					Att[att + t] = score / Math.Sqrt(headSize);
+				}
+
+				SoftMax(Att, att, pos + 1);
+
+				XB.Fill(0, q, headSize);
+				for (int t = 0; t <= pos; t++) {
+					int v = loff + t * kvDim + h / kvMul * headSize;
+					float a = Att[att + t];
+					for (int i = 0; i < headSize; i++)
+						XB[q + i] += a * ValueCache[v + i];
+				}
+			}
+
+			MatMul(XB2, 0, XB, WO, l * Dim * Dim, Dim, Dim);
+
+			for (int i = 0; i < Dim; i++)
+				X[i] += XB2[i];
+
+			RmsNorm(XB, X, RmsFfnWeight, l * Dim, Dim);
+
+			MatMul(HB, 0, XB, W1, l * Dim * HiddenDim, Dim, HiddenDim);
+			MatMul(HB2, 0, XB, W3, l * Dim * HiddenDim, Dim, HiddenDim);
+
+			for (int i = 0; i < HiddenDim; i++) {
+				float val = HB[i];
+				val *= 1 / (1 + Math.Exp(-val));
+				HB[i] = val * HB2[i];
+			}
+
+			MatMul(XB, 0, HB, W2, l * Dim * HiddenDim, HiddenDim, Dim);
+
+			for (int i = 0; i < Dim; i++)
+				X[i] += XB[i];
+		}
+		RmsNorm(X, X, RmsFinalWeight, 0, Dim);
+		MatMul(Logits, 0, X, WCls, 0, Dim, VocabSize);
+		return Logits;
+	}
+}
+
+class Tokenizer
+{
+	string()[]# Vocab;
+	float[]# VocabScores;
+	Dictionary<string, int>() VocabToToken;
+	int VocabSize;
+	int MaxTokenLength;
+
+	public Tokenizer()
+	{
+	}
+
+	public void Load!(Loader! loader, int vocabSize)
+	{
+		Vocab = new string()[vocabSize];
+		VocabScores = new float[vocabSize];
+		VocabToToken.Clear();
+		VocabSize = vocabSize;
+		MaxTokenLength = loader.ReadInt();
+		for (int i = 0; i < vocabSize; i++) {
+			VocabScores[i] = loader.ReadFloat();
+			Vocab[i] = loader.ReadString(); // TODO: <0xXX>
+		}
+	}
+
+	public string() Decode(int prevToken, int token)
+	{
+		string() piece = Vocab[token];
+		if (prevToken == 1 && piece[0] == ' ')
+			piece = piece.Substring(1);
+		return piece;
+	}
+
+	public void Encode!(string text, bool bos, bool eos, List<int>! tokens)
+	{
+		if (VocabToToken.Count == 0) {
+			for (int i = 0; i < VocabSize; i++)
+				VocabToToken[Vocab[i]] = i;
+		}
+		tokens.Clear();
+		if (bos)
+			tokens.Add(1);
+		// TODO
+		if (eos)
+			tokens.Add(2);
+	}
+}
+
+static class Sampler
+{
+	public static int ArgMax(float[] probabilities, int n)
+	{
+		int maxI = 0;
+		float maxP = probabilities[0];
+		for (int i = 1; i < n; i++) {
+			if (maxP < probabilities[i]) {
+				maxP = probabilities[i];
+				maxI = i;
+			}
+		}
+		return maxI;
+	}
+}
+
+public class Llama2
+{
+	Transformer() Trans;
+	Tokenizer() Tok;
+
+	public Llama2()
+	{
+	}
+
+	public void Load!(Loader! modelLoader, Loader! tokenizerLoader)
+	{
+		Trans.Load(modelLoader);
+		Tok.Load(tokenizerLoader, Trans.GetVocabSize());
+	}
+
+	public void Generate!(string prompt, int steps)
+	{
+		List<int>() promptTokens;
+		Tok.Encode(prompt, true, false, promptTokens);
+		int token = promptTokens[0];
+		for (int pos = 0; pos < steps; ) {
+			float[] logits = Trans.Forward(token, pos);
+			int next;
+			if (++pos < promptTokens.Count)
+				next = promptTokens[pos];
+			else {
+				next = Sampler.ArgMax(logits, Trans.GetVocabSize());
+				if (next == 1)
+					break;
+			}
+			Console.Write(Tok.Decode(token, next));
+			token = next;
+		}
+		Console.WriteLine();
+	}
+}
