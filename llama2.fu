@@ -96,6 +96,8 @@ class Transformer
 
 	internal int GetVocabSize() => VocabSize;
 
+	internal int GetSeqLen() => SeqLen;
+
 	static void RmsNorm(float[]! o, float[] x, float[] weight, int weightOffset, int size)
 	{
 		float ss =0;
@@ -106,7 +108,7 @@ class Transformer
 			o[i] = ss * x[i] * weight[weightOffset + i];
 	}
 
-	static void SoftMax(float[]! x, int xOffset, int size)
+	internal static void SoftMax(float[]! x, int xOffset, int size)
 	{
 		float max = x[0];
 		for (int i = 1; i < size; i++) {
@@ -130,7 +132,7 @@ class Transformer
 		}
 	}
 
-	public float[] Forward!(int token, int pos)
+	public float[]! Forward!(int token, int pos)
 	{
 		int kvDim = Dim * KVHeads / Heads;
 		int kvMul = Heads / KVHeads;
@@ -290,9 +292,20 @@ class Tokenizer
 	}
 }
 
-static class Sampler
+class Sampler
 {
-	public static int ArgMax(float[] probabilities, int n)
+	long RandomState;
+
+	public Sampler()
+	{
+	}
+
+	public void SetRandomSeed!(long value)
+	{
+		RandomState = value;
+	}
+
+	static int ArgMax(float[]! probabilities, int n)
 	{
 		int maxI = 0;
 		float maxP = probabilities[0];
@@ -304,12 +317,42 @@ static class Sampler
 		}
 		return maxI;
 	}
+
+	float NextRandom!()
+	{
+		// https://en.wikipedia.org/wiki/Xorshift#xorshift.2A
+		long state = RandomState;
+		state ^= state >> 12 & ((1 << 52) - 1);
+		state ^= ((state & (1 << 39) - 1)) << 25;
+		state ^= state >> 27 & ((1 << 37) - 1);
+		RandomState = state;
+		float f = (state * 0x2545f4914f6cdd1d >> 40) & ((1 << 24) - 1);
+		return f / 16777216;
+	}
+
+	public int Sample!(float[]! logits, int n, float temperature)
+	{
+		if (temperature == 0)
+			return ArgMax(logits, n);
+		for (int i = 0; i < n; i++)
+			logits[i] /= temperature;
+		Transformer.SoftMax(logits, 0, n);
+		float coin = NextRandom();
+		float cdf = 0;
+		for (int i = 0; i < n; i++) {
+			cdf += logits[i];
+			if (coin < cdf)
+				return i;
+		}
+		return n - 1; // in case of rounding errors
+	}
 }
 
 public class Llama2
 {
 	Transformer() Trans;
 	Tokenizer() Tok;
+	Sampler() Samp;
 
 	public Llama2()
 	{
@@ -321,18 +364,25 @@ public class Llama2
 		Tok.Load(tokenizerLoader, Trans.GetVocabSize());
 	}
 
-	public void Generate!(string prompt, int steps)
+	public int GetSeqLen() => Trans.GetSeqLen();
+
+	public void SetRandomSeed!(long value)
+	{
+		Samp.SetRandomSeed(value);
+	}
+
+	public void Generate!(string prompt, float temperature, int steps)
 	{
 		List<int>() promptTokens;
 		Tok.Encode(prompt, true, false, promptTokens);
 		int token = promptTokens[0];
 		for (int pos = 0; pos < steps; ) {
-			float[] logits = Trans.Forward(token, pos);
+			float[]! logits = Trans.Forward(token, pos);
 			int next;
 			if (++pos < promptTokens.Count)
 				next = promptTokens[pos];
 			else {
-				next = Sampler.ArgMax(logits, Trans.GetVocabSize());
+				next = Samp.Sample(logits, Trans.GetVocabSize(), temperature);
 				if (next == 1)
 					break;
 			}

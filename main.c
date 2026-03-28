@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "llama2fu.h"
 
@@ -79,30 +80,76 @@ static void Loader_Close(Loader *self)
 	fclose(self->fp);
 }
 
+static void usage(void)
+{
+	fprintf(stderr, "Usage:   llama2fu <checkpoint> [options]\n");
+	fprintf(stderr, "Example: llama2fu model.bin -n 256 -i \"Once upon a time\"\n");
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "  -t <float>  temperature in [0,inf], default 1.0\n");
+	fprintf(stderr, "  -s <int>    random seed, default time(NULL)\n");
+	fprintf(stderr, "  -n <int>    number of steps to run for, default 256. 0 = max_seq_len\n");
+	fprintf(stderr, "  -i <string> input prompt\n");
+	fprintf(stderr, "  -z <string> optional path to custom tokenizer\n");
+}
+
 int main(int argc, char **argv)
 {
-	const char *prompt;
-	switch (argc) {
-	case 2:
-		prompt = "";
-		break;
-	case 3:
-		prompt = argv[2];
-		break;
-	default:
-		printf("Usage: run <checkpoint> [<prompt>]\n");
+	float temperature = 1;
+	int64_t seed = 0;
+	int steps = 256;
+	const char *prompt = "";
+	const char *tokenizerPath = "tokenizer.bin";
+
+	if (argc < 2 || (argc & 1) != 0) {
+		usage();
 		return 1;
 	}
-	Loader modelLoader;
-	Loader_Open(&modelLoader, argv[1]);
-	Loader tokenizerLoader;
-	Loader_Open(&tokenizerLoader, "tokenizer.bin");
+	const char *modelPath = argv[1];
+	for (int i = 2; i < argc; i += 2) {
+		const char *opt = argv[i];
+		if (opt[0] != '-' || opt[1] == '\0' || opt[2] != '\0') {
+			usage();
+			return 1;
+		}
+		const char *value = argv[i + 1];
+		switch (opt[1]) {
+		case 't':
+			temperature = atof(value);
+			break;
+		case 's':
+			seed = atoll(value);
+			break;
+		case 'n':
+			steps = atoi(value);
+			break;
+		case 'i':
+			prompt = value;
+			break;
+		case 'z':
+			tokenizerPath = value;
+			break;
+		default:
+			usage();
+			return 1;
+		}
+	}
 
+	Loader modelLoader;
+	Loader_Open(&modelLoader, modelPath);
+	Loader tokenizerLoader;
+	Loader_Open(&tokenizerLoader, tokenizerPath);
 	Llama2 *obj = Llama2_New();
 	Llama2_Load(obj, &modelLoader, &tokenizerLoader);
 	Loader_Close(&tokenizerLoader);
 	Loader_Close(&modelLoader);
-	Llama2_Generate(obj, prompt, 256);
+
+	if (seed <= 0)
+		seed = time(NULL);
+	if (steps <= 0 || steps > Llama2_GetSeqLen(obj))
+		steps = Llama2_GetSeqLen(obj);
+
+	Llama2_SetRandomSeed(obj, seed);
+	Llama2_Generate(obj, prompt, temperature, steps);
 	Llama2_Delete(obj);
 	return 0;
 }
