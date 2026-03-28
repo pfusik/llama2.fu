@@ -81,8 +81,16 @@ static void Loader_Close(Loader *self)
 
 int main(int argc, char **argv)
 {
-	if (argc != 2) {
-		printf("Usage: run <checkpoint>\n");
+	const char *prompt;
+	switch (argc) {
+	case 2:
+		prompt = "";
+		break;
+	case 3:
+		prompt = argv[2];
+		break;
+	default:
+		printf("Usage: run <checkpoint> [<prompt>]\n");
 		return 1;
 	}
 	Loader modelLoader;
@@ -94,7 +102,7 @@ int main(int argc, char **argv)
 	Llama2_Load(obj, &modelLoader, &tokenizerLoader);
 	Loader_Close(&tokenizerLoader);
 	Loader_Close(&modelLoader);
-	Llama2_Generate(obj, "", 256);
+	Llama2_Generate(obj, prompt, 256);
 	Llama2_Delete(obj);
 	return 0;
 }

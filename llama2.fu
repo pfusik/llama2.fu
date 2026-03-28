@@ -218,7 +218,6 @@ class Tokenizer
 	float[]# VocabScores;
 	Dictionary<string, int>() VocabToToken;
 	int VocabSize;
-	int MaxTokenLength;
 
 	public Tokenizer()
 	{
@@ -230,7 +229,7 @@ class Tokenizer
 		VocabScores = new float[vocabSize];
 		VocabToToken.Clear();
 		VocabSize = vocabSize;
-		MaxTokenLength = loader.ReadInt();
+		loader.SkipBytes(4); // MaxTokenLength
 		for (int i = 0; i < vocabSize; i++) {
 			VocabScores[i] = loader.ReadFloat();
 			Vocab[i] = loader.ReadString();
@@ -260,7 +259,32 @@ class Tokenizer
 		tokens.Clear();
 		if (bos)
 			tokens.Add(1);
-		// TODO
+		if (text.Length > 0)
+			tokens.Add(VocabToToken[" "]);
+		foreach (int c in text) {
+			string() s = $"{c:u}";
+			tokens.Add(VocabToToken.ContainsKey(s) ? VocabToToken[s] : 3 + c);
+		}
+		for (;;) {
+			float bestScore = Math.NegativeInfinity;
+			int bestId = 0;
+			int bestIdx = -1;
+			for (int i = 0; i + 1 < tokens.Count; i++) {
+				string() s = Vocab[tokens[i]] + Vocab[tokens[i + 1]];
+				if (VocabToToken.ContainsKey(s)) {
+					int id = VocabToToken[s];
+					if (bestScore < VocabScores[id]) {
+						bestScore = VocabScores[id];
+						bestId = id;
+						bestIdx = i;
+					}
+				}
+			}
+			if (bestIdx < 0)
+				break;
+			tokens.RemoveAt(bestIdx + 1);
+			tokens[bestIdx] = bestId;
+		}
 		if (eos)
 			tokens.Add(2);
 	}
