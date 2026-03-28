@@ -25,26 +25,26 @@ class Transformer
 	float[]# TokenEmbeddingTable;
 	float[]# RmsAttWeight;
 	float[]# RmsFfnWeight;
-    float[]# WQ;
-    float[]# WK;
-    float[]# WV;
-    float[]# WO;
-    float[]# W1;
-    float[]# W2;
-    float[]# W3;
-    float[]# RmsFinalWeight;
-    float[]# WCls;
+	float[]# WQ;
+	float[]# WK;
+	float[]# WV;
+	float[]# WO;
+	float[]# W1;
+	float[]# W2;
+	float[]# W3;
+	float[]# RmsFinalWeight;
+	float[]# WCls;
 
-    float[]# X;
-    float[]# XB;
-    float[]# XB2;
-    float[]# HB;
-    float[]# HB2;
-    float[]# Q;
-    float[]# Att;
-    float[]# Logits;
-    float[]# KeyCache;
-    float[]# ValueCache;
+	float[]# X;
+	float[]# XB;
+	float[]# XB2;
+	float[]# HB;
+	float[]# HB2;
+	float[]# Q;
+	float[]# Att;
+	float[]# Logits;
+	float[]# KeyCache;
+	float[]# ValueCache;
 
 	public void Load!(Loader! loader)
 	{
