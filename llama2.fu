@@ -46,10 +46,6 @@ class Transformer
     float[]# KeyCache;
     float[]# ValueCache;
 
-	public Transformer()
-	{
-	}
-
 	public void Load!(Loader! loader)
 	{
 		Dim = loader.ReadInt();
@@ -221,10 +217,6 @@ class Tokenizer
 	Dictionary<string, int>() VocabToToken;
 	int VocabSize;
 
-	public Tokenizer()
-	{
-	}
-
 	public void Load!(Loader! loader, int vocabSize)
 	{
 		Vocab = new string()[vocabSize];
@@ -295,10 +287,6 @@ class Tokenizer
 class Sampler
 {
 	long RandomState;
-
-	public Sampler()
-	{
-	}
 
 	public void SetRandomSeed!(long value)
 	{
