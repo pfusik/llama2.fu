@@ -46,7 +46,11 @@ static void Loader_ReadFloats(Loader *self, float *a, ptrdiff_t n)
 
 static void Loader_SkipBytes(Loader *self, ptrdiff_t n)
 {
+#ifdef _WIN32
+	_fseeki64(self->fp, n, SEEK_CUR);
+#else
 	fseek(self->fp, n, SEEK_CUR);
+#endif
 }
 
 static char *Loader_ReadString(Loader *self)
