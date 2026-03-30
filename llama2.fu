@@ -306,15 +306,21 @@ class Sampler
 		return maxI;
 	}
 
+	static long LowBits(int n)
+	{
+		long one = 1;
+		return (one << n) - 1;
+	}
+
 	float NextRandom!()
 	{
 		// https://en.wikipedia.org/wiki/Xorshift#xorshift.2A
 		long state = RandomState;
-		state ^= state >> 12 & ((1 << 52) - 1);
-		state ^= ((state & (1 << 39) - 1)) << 25;
-		state ^= state >> 27 & ((1 << 37) - 1);
+		state ^= state >> 12 & LowBits(52);
+		state ^= (state & LowBits(39)) << 25;
+		state ^= state >> 27 & LowBits(37);
 		RandomState = state;
-		float f = (state * 0x2545f4914f6cdd1d >> 40) & ((1 << 24) - 1);
+		float f = (state * 0x2545f4914f6cdd1d >> 40) & LowBits(24);
 		return f / 16777216;
 	}
 
