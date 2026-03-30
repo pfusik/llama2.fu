@@ -385,4 +385,48 @@ public class Llama2
 		}
 		Console.WriteLine();
 	}
+
+	public void Chat!(string? prompt, string? systemPrompt, float temperature, int steps)
+	{
+		List<int>() promptTokens;
+		int userIdx = 0;
+		int next = 0;
+		for (int pos = 0; pos < steps; pos++) {
+			if (userIdx == 0) {
+				string() systemPromptRead;
+				if (pos == 0 && systemPrompt == null) {
+					Console.Write("Enter system prompt (optional): ");
+					systemPromptRead = Console.ReadLine();
+					systemPrompt = systemPromptRead;
+				}
+				string() promptRead;
+				if (pos != 0 || prompt == null) {
+					Console.Write("User: ");
+					promptRead = Console.ReadLine();
+					prompt = promptRead;
+				}
+				string() renderedPrompt;
+				if (pos == 0 && systemPrompt.Length > 0)
+					renderedPrompt = $"[INST] <<SYS>>\n{systemPrompt}\n<</SYS>>\n\n{prompt} [/INST]";
+				else
+					renderedPrompt = $"[INST] {prompt} [/INST]";
+				Tok.Encode(renderedPrompt, true, false, promptTokens);
+				Console.Write("Assistant: ");
+			}
+			int token;
+			if (userIdx < promptTokens.Count)
+				token = promptTokens[userIdx++];
+			else
+				token = next;
+			if (token == 2)
+				userIdx = 0;
+			float[]! logits = Trans.Forward(token, pos);
+			next = Samp.Sample(logits, Trans.GetVocabSize(), temperature);
+			if (next == 2)
+				Console.WriteLine();
+			else if (userIdx >= promptTokens.Count)
+				Console.Write(Tok.Decode(token, next));
+		}
+		Console.WriteLine();
+	}
 }

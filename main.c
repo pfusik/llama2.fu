@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "llama2fu.h"
@@ -94,6 +95,8 @@ static void usage(void)
 	fprintf(stderr, "  -n <int>    number of steps to run for, default 256. 0 = max_seq_len\n");
 	fprintf(stderr, "  -i <string> input prompt\n");
 	fprintf(stderr, "  -z <string> optional path to custom tokenizer\n");
+	fprintf(stderr, "  -m <string> mode: generate|chat, default: generate\n");
+	fprintf(stderr, "  -y <string> (optional) system prompt in chat mode\n");
 }
 
 int main(int argc, char **argv)
@@ -101,8 +104,10 @@ int main(int argc, char **argv)
 	float temperature = 1;
 	int64_t seed = 0;
 	int steps = 256;
-	const char *prompt = "";
+	const char *prompt = NULL;
 	const char *tokenizerPath = "tokenizer.bin";
+	const char *mode = "generate";
+	const char *systemPrompt = NULL;
 
 	if (argc < 2 || (argc & 1) != 0) {
 		usage();
@@ -132,6 +137,17 @@ int main(int argc, char **argv)
 		case 'z':
 			tokenizerPath = value;
 			break;
+		case 'm':
+			if (strcmp(value, "generate") != 0 && strcmp(value, "chat") != 0) {
+				fprintf(stderr, "unknown mode: %s\n", value);
+				usage();
+				return 1;
+			}
+			mode = value;
+			break;
+		case 'y':
+			systemPrompt = value;
+			break;
 		default:
 			usage();
 			return 1;
@@ -153,7 +169,10 @@ int main(int argc, char **argv)
 		steps = Llama2_GetSeqLen(obj);
 
 	Llama2_SetRandomSeed(obj, seed);
-	Llama2_Generate(obj, prompt, temperature, steps);
+	if (strcmp(mode, "chat") == 0)
+		Llama2_Chat(obj, prompt, systemPrompt, temperature, steps);
+	else
+		Llama2_Generate(obj, prompt == NULL ? "" : prompt, temperature, steps);
 	Llama2_Delete(obj);
 	return 0;
 }
