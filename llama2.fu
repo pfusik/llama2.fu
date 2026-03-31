@@ -120,7 +120,13 @@ class Transformer
 
 	static void MatMul(float[]! o, int oOffset, float[] x, float[] w, int wOffset, int n, int d)
 	{
-		for (int i = 0; i < d; i++) {
+		int i;
+#if OPENMP
+		native {
+			#pragma omp parallel for private(i)
+		}
+#endif
+		for (i = 0; i < d; i++) {
 			float v = 0;
 			for (int j = 0; j < n; j++)
 				v += w[wOffset + i * n + j] * x[j];

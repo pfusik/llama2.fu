@@ -5,10 +5,10 @@ EXEEXT = .exe
 endif
 
 llama2fu$(EXEEXT): main.c llama2fu.c
-	$(CC) -o $@ $(CFLAGS) $^ `pkg-config --cflags --libs glib-2.0`
+	$(CC) -o $@ $(CFLAGS) $^ -fopenmp `pkg-config --cflags --libs glib-2.0`
 
 llama2fu.c: llama2.fu
-	fut -o $@ $^
+	fut -o $@ -D OPENMP $^
 
 clean:
 	$(RM) llama2fu$(EXEEXT) llama2fu.c llama2fu.h
