@@ -244,15 +244,14 @@ class Tokenizer
 		return piece;
 	}
 
-	public void Encode!(string text, bool bos, bool eos, List<int>! tokens)
+	public void Encode!(string text, List<int>! tokens)
 	{
 		if (VocabToToken.Count == 0) {
 			for (int i = 0; i < VocabSize; i++)
 				VocabToToken[Vocab[i]] = i;
 		}
 		tokens.Clear();
-		if (bos)
-			tokens.Add(1);
+		tokens.Add(1); // bos
 		if (text.Length > 0)
 			tokens.Add(VocabToToken[" "]);
 		foreach (int c in text) {
@@ -279,8 +278,6 @@ class Tokenizer
 			tokens.RemoveAt(bestIdx + 1);
 			tokens[bestIdx] = bestId;
 		}
-		if (eos)
-			tokens.Add(2);
 	}
 }
 
@@ -368,7 +365,7 @@ public class Llama2
 	public void Generate!(string prompt, float temperature, int steps)
 	{
 		List<int>() promptTokens;
-		Tok.Encode(prompt, true, false, promptTokens);
+		Tok.Encode(prompt, promptTokens);
 		int token = promptTokens[0];
 		for (int pos = 0; pos < steps; ) {
 			float[]! logits = Trans.Forward(token, pos);
@@ -410,7 +407,7 @@ public class Llama2
 					renderedPrompt = $"[INST] <<SYS>>\n{systemPrompt}\n<</SYS>>\n\n{prompt} [/INST]";
 				else
 					renderedPrompt = $"[INST] {prompt} [/INST]";
-				Tok.Encode(renderedPrompt, true, false, promptTokens);
+				Tok.Encode(renderedPrompt, promptTokens);
 				Console.Write("Assistant: ");
 			}
 			int token;
