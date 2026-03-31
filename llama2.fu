@@ -230,8 +230,11 @@ class Tokenizer
 			string s = Vocab[i];
 			if (s.Length == 6 && s.StartsWith("<0x") && s[5] == '>') {
 				int c;
-				if (c.TryParse(s.Substring(3, 2), 16))
-					Vocab[i] = $"{c:u}";
+				if (c.TryParse(s.Substring(3, 2), 16)) {
+					byte[1] b;
+					b[0] = c;
+					Vocab[i] = Encoding.UTF8.GetString(b, 0, 1);
+				}
 			}
 		}
 	}
@@ -255,8 +258,10 @@ class Tokenizer
 		if (text.Length > 0)
 			tokens.Add(VocabToToken[" "]);
 		foreach (int c in text) {
-			string() s = $"{c:u}";
-			tokens.Add(VocabToToken.ContainsKey(s) ? VocabToToken[s] : 3 + c);
+			byte[1] b;
+			b[0] = c;
+			string() s = Encoding.UTF8.GetString(b, 0, 1);
+			tokens.Add(VocabToToken.ContainsKey(s) ? VocabToToken[s] : 3 + (c & 0xff));
 		}
 		for (;;) {
 			float bestScore = Math.NegativeInfinity;

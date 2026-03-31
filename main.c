@@ -1,7 +1,11 @@
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "llama2fu.h"
 
@@ -168,6 +172,10 @@ int main(int argc, char **argv)
 	if (steps <= 0 || steps > Llama2_GetSeqLen(obj))
 		steps = Llama2_GetSeqLen(obj);
 
+#ifdef _WIN32
+	SetConsoleCP(CP_UTF8);
+#endif
+	setlocale(LC_ALL, "C.UTF-8");
 	Llama2_SetRandomSeed(obj, seed);
 	if (strcmp(mode, "chat") == 0)
 		Llama2_Chat(obj, prompt, systemPrompt, temperature, steps);
