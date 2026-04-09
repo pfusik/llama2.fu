@@ -72,10 +72,8 @@ class Transformer
 		RmsFinalWeight = loader.AllocateAndReadFloats(Dim);
 		if (sharedWeights)
 			WCls = TokenEmbeddingTable;
-		else {
-			loader.SkipBytes(SeqLen * headSize >> 1 << 3);
+		else
 			WCls = loader.AllocateAndReadFloats(VocabSize * Dim);
-		}
 
 		X = new float[Dim];
 		XB = new float[Dim];

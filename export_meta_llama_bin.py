@@ -1,5 +1,5 @@
 """
-This script exports the Llama 2 weights in llama2c.bin format.
+This script exports the Llama 2 weights in llama2fu.bin format.
 """
 import os
 import sys
@@ -9,17 +9,15 @@ import json
 
 import torch
 
-from model import precompute_freqs_cis
-
 
 def export(p, state_dict, filepath='model.bin'):
-    """export the model weights in fp32 into .bin file to be read from C"""
+    """export the model weights in bf16 into .bin file to be read from C"""
     f = open(filepath, 'wb')
 
     def serialize(key):
         print(f"writing {key}...")
-        t = state_dict[key].contiguous().view(-1).type(torch.float32).numpy()
-        f.write(memoryview(t))
+        t = state_dict[key].view(-1).bfloat16(memory_format=torch.contiguous_format)
+        f.write(memoryview(t.view(torch.int16).numpy()))
         del state_dict[key]
 
     # first write out the header
@@ -38,7 +36,6 @@ def export(p, state_dict, filepath='model.bin'):
     f.write(header)
 
     # next write out the embedding weights
-    print("writing tok_embeddings...")
     serialize('tok_embeddings.weight')
 
     # now all the layers
@@ -56,12 +53,6 @@ def export(p, state_dict, filepath='model.bin'):
 
     # final rmsnorm
     serialize('norm.weight')
-    # freqs_cos, freqs_sin
-    freqs_cos, freqs_sin = precompute_freqs_cis(p['dim'] // p['n_heads'], p['max_seq_len'] * 2)
-    state_dict['freqs_cos'] = freqs_cos[:p['max_seq_len']]
-    state_dict['freqs_sin'] = freqs_sin[:p['max_seq_len']]
-    serialize('freqs_cos')
-    serialize('freqs_sin')
 
     # finally write the output weights
     serialize('output.weight')

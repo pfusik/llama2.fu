@@ -47,7 +47,18 @@ static float Loader_ReadFloat(Loader *self)
 
 static void Loader_ReadFloats(Loader *self, float *a, ptrdiff_t n)
 {
-	Loader_Read(self, a, n * sizeof(float));
+#define BUF_SIZE 1024
+	for (ptrdiff_t i = 0; i < n; i += BUF_SIZE) {
+		char buf[BUF_SIZE * 2];
+		ptrdiff_t m = n - i;
+		if (m > BUF_SIZE)
+			m = BUF_SIZE;
+		Loader_Read(self, buf, m * 2);
+		for (ptrdiff_t j = 0; j < m; j++) {
+			char f[4] = { 0, 0, buf[j * 2], buf[j * 2 + 1] };
+			a[i + j] = *(const float *) f;
+		}
+	}
 }
 
 static void Loader_SkipBytes(Loader *self, ptrdiff_t n)
