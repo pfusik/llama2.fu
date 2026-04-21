@@ -1,5 +1,6 @@
 public abstract class Loader
 {
+	public abstract void Open!(string path);
 	public abstract int ReadInt!();
 	public abstract float ReadFloat!();
 	public abstract void ReadFloats!(float[]! a, nint n);
@@ -11,6 +12,7 @@ public abstract class Loader
 		return a;
 	}
 	public abstract string() ReadString!();
+	public abstract void Close!();
 }
 
 class Transformer
@@ -220,6 +222,8 @@ class Tokenizer
 	float[]# VocabScores;
 	Dictionary<string, int>() VocabToToken;
 	int VocabSize;
+	List<int>() Prompt;
+	int PromptIndex;
 
 	public void Load!(Loader! loader, int vocabSize)
 	{
@@ -243,36 +247,31 @@ class Tokenizer
 		}
 	}
 
-	public string() Decode(int prevToken, int token)
-	{
-		string() piece = Vocab[token];
-		if (prevToken == 1 && piece[0] == ' ')
-			piece = piece.Substring(1);
-		return piece;
-	}
+	public string Decode(int token) => Vocab[token];
 
-	public void Encode!(string text, List<int>! tokens)
+	public void SetPrompt!(string text)
 	{
 		if (VocabToToken.Count == 0) {
 			for (int i = 0; i < VocabSize; i++)
 				VocabToToken[Vocab[i]] = i;
 		}
-		tokens.Clear();
-		tokens.Add(1); // bos
+		PromptIndex = 0;
+		Prompt.Clear();
+		Prompt.Add(1); // bos
 		if (text.Length > 0)
-			tokens.Add(VocabToToken[" "]);
+			Prompt.Add(VocabToToken[" "]);
 		foreach (int c in text) {
 			byte[1] b;
 			b[0] = c;
 			string() s = Encoding.UTF8.GetString(b, 0, 1);
-			tokens.Add(VocabToToken.ContainsKey(s) ? VocabToToken[s] : 3 + (c & 0xff));
+			Prompt.Add(VocabToToken.ContainsKey(s) ? VocabToToken[s] : 3 + (c & 0xff));
 		}
 		for (;;) {
 			float bestScore = Math.NegativeInfinity;
 			int bestId = 0;
 			int bestIdx = -1;
-			for (int i = 0; i + 1 < tokens.Count; i++) {
-				string() s = Vocab[tokens[i]] + Vocab[tokens[i + 1]];
+			for (int i = 0; i + 1 < Prompt.Count; i++) {
+				string() s = Vocab[Prompt[i]] + Vocab[Prompt[i + 1]];
 				if (VocabToToken.ContainsKey(s)) {
 					int id = VocabToToken[s];
 					if (bestScore < VocabScores[id]) {
@@ -284,15 +283,25 @@ class Tokenizer
 			}
 			if (bestIdx < 0)
 				break;
-			tokens.RemoveAt(bestIdx + 1);
-			tokens[bestIdx] = bestId;
+			Prompt.RemoveAt(bestIdx + 1);
+			Prompt[bestIdx] = bestId;
 		}
 	}
+
+	public bool HasPromptToken() => PromptIndex < Prompt.Count;
+
+	public int GetPromptToken!() => Prompt[PromptIndex++];
 }
 
 class Sampler
 {
+	float Temperature = 1;
 	long RandomState;
+
+	public void SetTemperature!(float value)
+	{
+		Temperature = value;
+	}
 
 	public void SetRandomSeed!(long value)
 	{
@@ -330,12 +339,12 @@ class Sampler
 		return f / 16777216;
 	}
 
-	public int Sample!(float[]! logits, int n, float temperature)
+	public int Sample!(float[]! logits, int n)
 	{
-		if (temperature == 0)
+		if (Temperature == 0)
 			return ArgMax(logits, n);
 		for (int i = 0; i < n; i++)
-			logits[i] /= temperature;
+			logits[i] /= Temperature;
 		Transformer.SoftMax(logits, 0, n);
 		float coin = NextRandom();
 		float cdf = 0;
@@ -353,86 +362,74 @@ public class Llama2
 	Transformer() Trans;
 	Tokenizer() Tok;
 	Sampler() Samp;
+	int Token;
 
 	public Llama2()
 	{
 	}
 
-	public void Load!(Loader! modelLoader, Loader! tokenizerLoader)
+	public void Load!(Loader! loader, string modelPath, string tokenizerPath)
 	{
-		Trans.Load(modelLoader);
-		Tok.Load(tokenizerLoader, Trans.GetVocabSize());
+		loader.Open(modelPath);
+		Trans.Load(loader);
+		loader.Close();
+		loader.Open(tokenizerPath);
+		Tok.Load(loader, Trans.GetVocabSize());
+		loader.Close();
 	}
 
 	public int GetSeqLen() => Trans.GetSeqLen();
+
+	public void SetTemperature!(float value)
+	{
+		Samp.SetTemperature(value);
+	}
 
 	public void SetRandomSeed!(long value)
 	{
 		Samp.SetRandomSeed(value);
 	}
 
-	public void Generate!(string prompt, float temperature, int steps)
+	public void SetRawPrompt!(string prompt)
 	{
-		List<int>() promptTokens;
-		Tok.Encode(prompt, promptTokens);
-		int token = promptTokens[0];
-		for (int pos = 0; pos < steps; ) {
-			float[]! logits = Trans.Forward(token, pos);
-			int next;
-			if (++pos < promptTokens.Count)
-				next = promptTokens[pos];
-			else {
-				next = Samp.Sample(logits, Trans.GetVocabSize(), temperature);
-				if (next == 1)
-					break;
-			}
-			Console.Write(Tok.Decode(token, next));
-			token = next;
-		}
-		Console.WriteLine();
+		Tok.SetPrompt(prompt);
 	}
 
-	public void Chat!(string? prompt, string? systemPrompt, float temperature, int steps)
+	void FeedPrompt!()
 	{
-		List<int>() promptTokens;
-		int userIdx = 0;
-		int next = 0;
-		for (int pos = 0; pos < steps; pos++) {
-			if (userIdx == 0) {
-				string() systemPromptRead;
-				if (pos == 0 && systemPrompt == null) {
-					Console.Write("Enter system prompt (optional): ");
-					systemPromptRead = Console.ReadLine();
-					systemPrompt = systemPromptRead;
-				}
-				string() promptRead;
-				if (pos != 0 || prompt == null) {
-					Console.Write("User: ");
-					promptRead = Console.ReadLine();
-					prompt = promptRead;
-				}
-				string() renderedPrompt;
-				if (pos == 0 && systemPrompt.Length > 0)
-					renderedPrompt = $"[INST] <<SYS>>\n{systemPrompt}\n<</SYS>>\n\n{prompt} [/INST]";
-				else
-					renderedPrompt = $"[INST] {prompt} [/INST]";
-				Tok.Encode(renderedPrompt, promptTokens);
-				Console.Write("Assistant: ");
-			}
-			int token;
-			if (userIdx < promptTokens.Count)
-				token = promptTokens[userIdx++];
-			else
-				token = next;
-			if (token == 2)
-				userIdx = 0;
-			float[]! logits = Trans.Forward(token, pos);
-			next = Samp.Sample(logits, Trans.GetVocabSize(), temperature);
-			if (next == 2)
-				Console.WriteLine();
-			else if (userIdx >= promptTokens.Count)
-				Console.Write(Tok.Decode(token, next));
-		}
-		Console.WriteLine();
+		if (Tok.HasPromptToken())
+			Token = Tok.GetPromptToken();
+	}
+
+	public string? ForwardGenerate!(int pos)
+	{
+		FeedPrompt();
+		if (pos != 0 && Token == 1)
+			return null;
+		string text = pos == 0 ? "" : Tok.Decode(Token);
+		float[]! logits = Trans.Forward(Token, pos);
+		if (!Tok.HasPromptToken())
+			Token = Samp.Sample(logits, Trans.GetVocabSize());
+		return text;
+	}
+
+	public void SetChatPrompt!(string prompt, string systemPrompt)
+	{
+		if (systemPrompt.Length > 0)
+			SetRawPrompt($"[INST] <<SYS>>\n{systemPrompt}\n<</SYS>>\n\n{prompt} [/INST]");
+		else
+			SetRawPrompt($"[INST] {prompt} [/INST]");
+	}
+
+	public string? ForwardChat!(int pos)
+	{
+		FeedPrompt();
+		float[]! logits = Trans.Forward(Token, pos);
+		if (Tok.HasPromptToken())
+			return "";
+		if (Token == 2)
+			return null;
+		Token = Samp.Sample(logits, Trans.GetVocabSize());
+		return Token == 2 ? "\n" : Tok.Decode(Token);
 	}
 }

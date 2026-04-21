@@ -1,0 +1,123 @@
+public static class Llama2Cli
+{
+	static void Usage()
+	{
+		Console.Error.WriteLine("Usage:   llama2fu <checkpoint> [options]");
+		Console.Error.WriteLine("Example: llama2fu model.bin -n 256 -i \"Once upon a time\"");
+		Console.Error.WriteLine("Options:");
+		Console.Error.WriteLine("  -t <float>  temperature in [0,inf], default 1.0");
+		Console.Error.WriteLine("  -s <int>    random seed, default time(NULL)");
+		Console.Error.WriteLine("  -n <int>    number of steps to run for, default 256. 0 = max_seq_len");
+		Console.Error.WriteLine("  -i <string> input prompt");
+		Console.Error.WriteLine("  -z <string> optional path to custom tokenizer");
+		Console.Error.WriteLine("  -m <string> mode: generate|chat, default: generate");
+		Console.Error.WriteLine("  -y <string> (optional) system prompt in chat mode");
+	}
+
+	static void Generate(Llama2! obj, string prompt, int steps)
+	{
+		obj.SetRawPrompt(prompt);
+		for (int pos = 0; pos < steps; pos++) {
+			string? text = obj.ForwardGenerate(pos);
+			if (text == null)
+				break;
+			Console.Write(pos == 1 ? text.Substring(1) : text);
+		}
+		Console.WriteLine();
+	}
+
+	static void Chat(Llama2! obj, string? prompt, string? systemPrompt, int steps)
+	{
+		bool userTurn = true;
+		for (int pos = 0; pos < steps; pos++) {
+			if (userTurn) {
+				string() systemPromptRead;
+				if (pos == 0 && systemPrompt == null) {
+					Console.Write("Enter system prompt (optional): ");
+					systemPromptRead = Console.ReadLine();
+					systemPrompt = systemPromptRead;
+				}
+				string() promptRead;
+				if (pos != 0 || prompt == null) {
+					Console.Write("User: ");
+					promptRead = Console.ReadLine();
+					prompt = promptRead;
+				}
+				obj.SetChatPrompt(prompt, pos == 0 ? systemPrompt : "");
+				Console.Write("Assistant: ");
+			}
+			string? token = obj.ForwardChat(pos);
+			userTurn = token == null;
+			if (token != null)
+				Console.Write(token);
+		}
+		Console.WriteLine();
+	}
+
+	public static int Run(string[] args, int argc, Loader! loader, long seed)
+	{
+		if (argc < 1 || (argc & 1) == 0) {
+			Usage();
+			return 1;
+		}
+		string modelPath = args[0];
+		float temperature = 1;
+		int steps = 256;
+		string? prompt = null;
+		string tokenizerPath = "tokenizer.bin";
+		string mode = "generate";
+		string? systemPrompt = null;
+
+		for (int i = 1; i < argc; i += 2) {
+			string opt = args[i];
+			if (opt.Length != 2 || opt[0] != '-') {
+				Usage();
+				return 1;
+			}
+			string value = args[i + 1];
+			switch (opt[1]) {
+			case 't':
+				temperature.TryParse(value);
+				break;
+			case 's':
+				seed.TryParse(value);
+				break;
+			case 'n':
+				steps.TryParse(value);
+				break;
+			case 'i':
+				prompt = value;
+				break;
+			case 'z':
+				tokenizerPath = value;
+				break;
+			case 'm':
+				if (value != "generate" && value != "chat") {
+					Console.Error.WriteLine($"unknown mode: {value}");
+					Usage();
+					return 1;
+				}
+				mode = value;
+				break;
+			case 'y':
+				systemPrompt = value;
+				break;
+			default:
+				Usage();
+				return 1;
+			}
+		}
+
+		Llama2() obj;
+		obj.Load(loader, modelPath, tokenizerPath);
+		obj.SetTemperature(temperature);
+		obj.SetRandomSeed(seed);
+		if (steps <= 0 || steps > obj.GetSeqLen())
+			steps = obj.GetSeqLen();
+		if (mode == "chat")
+			Chat(obj, prompt, systemPrompt, steps);
+		else
+			Generate(obj, prompt == null ? "" : prompt, steps);
+		return 0;
+	}
+}
