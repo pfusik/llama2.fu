@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -112,5 +111,5 @@ int main(int argc, char **argv)
 		Loader_Close
 	};
 	Loader loader = { &vtbl };
-	return Llama2Cli_Run((const char *const *) argv + 1, argc - 1, &loader, time(NULL));
+	return Llama2Cli_Run((const char *const *) argv + 1, argc - 1, &loader);
 }

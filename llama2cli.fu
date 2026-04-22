@@ -6,7 +6,7 @@ public static class Llama2Cli
 		Console.Error.WriteLine("Example: llama2fu model.bin -n 256 -i \"Once upon a time\"");
 		Console.Error.WriteLine("Options:");
 		Console.Error.WriteLine("  -t <float>  temperature in [0,inf], default 1.0");
-		Console.Error.WriteLine("  -s <int>    random seed, default time(NULL)");
+		Console.Error.WriteLine("  -s <int>    random seed");
 		Console.Error.WriteLine("  -n <int>    number of steps to run for, default 256. 0 = max_seq_len");
 		Console.Error.WriteLine("  -i <string> input prompt");
 		Console.Error.WriteLine("  -z <string> optional path to custom tokenizer");
@@ -54,7 +54,7 @@ public static class Llama2Cli
 		Console.WriteLine();
 	}
 
-	public static int Run(string[] args, int argc, Loader! loader, long seed)
+	public static int Run(string[] args, int argc, Loader! loader)
 	{
 		if (argc < 1 || (argc & 1) == 0) {
 			Usage();
@@ -62,6 +62,7 @@ public static class Llama2Cli
 		}
 		string modelPath = args[0];
 		float temperature = 1;
+		long seed = 0;
 		int steps = 256;
 		string? prompt = null;
 		string tokenizerPath = "tokenizer.bin";
@@ -111,7 +112,7 @@ public static class Llama2Cli
 		Llama2() obj;
 		obj.Load(loader, modelPath, tokenizerPath);
 		obj.SetTemperature(temperature);
-		obj.SetRandomSeed(seed);
+		obj.SetRandomSeed(seed > 0 ? seed : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 		if (steps <= 0 || steps > obj.GetSeqLen())
 			steps = obj.GetSeqLen();
 		if (mode == "chat")
