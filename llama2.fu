@@ -1,3 +1,8 @@
+// llama2.fu - Llama 2 LLM inference in Fusion
+// Copyright (c) 2023 Andrej (original C code: https://github.com/karpathy/llama2.c)
+// Copyright (c) 2026 Piotr Fusik
+// SPDX-License-Identifier: MIT
+
 public abstract class Loader
 {
 	public abstract void Open!(string path);

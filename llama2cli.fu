@@ -1,3 +1,8 @@
+// llama2cli.fu - Llama 2 LLM command-line interface in Fusion
+// Copyright (c) 2023 Andrej (original C code: https://github.com/karpathy/llama2.c)
+// Copyright (c) 2026 Piotr Fusik
+// SPDX-License-Identifier: MIT
+
 public static class Llama2Cli
 {
 	static void Usage()
