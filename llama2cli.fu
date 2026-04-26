@@ -17,13 +17,17 @@ public static class Llama2Cli
 	static void Generate(Llama2! obj, string prompt, int steps)
 	{
 		obj.SetRawPrompt(prompt);
-		for (int pos = 0; pos < steps; pos++) {
-			string? text = obj.ForwardGenerate(pos);
+		long startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+		int pos = 0;
+		while (pos < steps) {
+			string? text = obj.ForwardGenerate(pos++);
 			if (text == null)
 				break;
-			Console.Write(pos == 1 ? text.Substring(1) : text);
+			Console.Write(pos == 2 ? text.Substring(1) : text);
 		}
 		Console.WriteLine();
+		float time = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime;
+		Console.Error.WriteLine($"achieved tok/s: {pos * 1000 / time:f1}\n");
 	}
 
 	static void Chat(Llama2! obj, string? prompt, string? systemPrompt, int steps)
