@@ -17,7 +17,7 @@ typedef struct {
 	void (*open)(Loader *self, const char *path);
 	int (*readInt)(Loader *self);
 	float (*readFloat)(Loader *self);
-	void (*readFloats)(Loader *self, float *a, ptrdiff_t n);
+	void (*readWeights)(Loader *self, short *a, ptrdiff_t n);
 	void (*skipBytes)(Loader *self, ptrdiff_t n);
 	char *(*readString)(Loader *self);
 	void (*close)(Loader *self);
@@ -59,20 +59,9 @@ static float Loader_ReadFloat(Loader *self)
 	return result;
 }
 
-static void Loader_ReadFloats(Loader *self, float *a, ptrdiff_t n)
+static void Loader_ReadWeights(Loader *self, short *a, ptrdiff_t n)
 {
-#define BUF_SIZE 1024
-	for (ptrdiff_t i = 0; i < n; i += BUF_SIZE) {
-		char buf[BUF_SIZE * 2];
-		ptrdiff_t m = n - i;
-		if (m > BUF_SIZE)
-			m = BUF_SIZE;
-		Loader_Read(self, buf, m * 2);
-		for (ptrdiff_t j = 0; j < m; j++) {
-			char f[4] = { 0, 0, buf[j * 2], buf[j * 2 + 1] };
-			a[i + j] = *(const float *) f;
-		}
-	}
+	return Loader_Read(self, a, n * sizeof(short));
 }
 
 static void Loader_SkipBytes(Loader *self, ptrdiff_t n)
@@ -110,7 +99,7 @@ int main(int argc, char **argv)
 		Loader_Open,
 		Loader_ReadInt,
 		Loader_ReadFloat,
-		Loader_ReadFloats,
+		Loader_ReadWeights,
 		Loader_SkipBytes,
 		Loader_ReadString,
 		Loader_Close

@@ -8,12 +8,12 @@ public abstract class Loader
 	public abstract void Open!(string path);
 	public abstract int ReadInt!();
 	public abstract float ReadFloat!();
-	public abstract void ReadFloats!(float[]! a, nint n);
+	public abstract void ReadWeights!(short[]! a, nint n);
 	public abstract void SkipBytes!(nint n);
-	internal float[]# AllocateAndReadFloats!(nint n)
+	internal short[]# AllocateAndReadWeights!(nint n)
 	{
-		float[]# a = new float[n];
-		ReadFloats(a, n);
+		short[]# a = new short[n];
+		ReadWeights(a, n);
 		return a;
 	}
 	public abstract string() ReadString!();
@@ -29,18 +29,18 @@ class Transformer
 	int KVHeads;
 	int VocabSize;
 	int SeqLen;
-	float[]# TokenEmbeddingTable;
-	float[]# RmsAttWeight;
-	float[]# RmsFfnWeight;
-	float[]# WQ;
-	float[]# WK;
-	float[]# WV;
-	float[]# WO;
-	float[]# W1;
-	float[]# W2;
-	float[]# W3;
-	float[]# RmsFinalWeight;
-	float[]# WCls;
+	short[]# TokenEmbeddingTable;
+	short[]# RmsAttWeight;
+	short[]# RmsFfnWeight;
+	short[]# WQ;
+	short[]# WK;
+	short[]# WV;
+	short[]# WO;
+	short[]# W1;
+	short[]# W2;
+	short[]# W3;
+	short[]# RmsFinalWeight;
+	short[]# WCls;
 
 	float[]# X;
 	float[]# XB;
@@ -64,23 +64,23 @@ class Transformer
 		bool sharedWeights = i > 0;
 		VocabSize = Math.Abs(i);
 		SeqLen = loader.ReadInt();
-		TokenEmbeddingTable = loader.AllocateAndReadFloats(VocabSize * Dim);
+		TokenEmbeddingTable = loader.AllocateAndReadWeights(VocabSize * Dim);
 		nint n = Dim * Layers;
-		RmsAttWeight = loader.AllocateAndReadFloats(n);
+		RmsAttWeight = loader.AllocateAndReadWeights(n);
 		int headSize = Dim / Heads;
-		WQ = loader.AllocateAndReadFloats(Heads * headSize * n);
-		WK = loader.AllocateAndReadFloats(KVHeads * headSize * n);
-		WV = loader.AllocateAndReadFloats(KVHeads * headSize * n);
-		WO = loader.AllocateAndReadFloats(Heads * headSize * n);
-		RmsFfnWeight = loader.AllocateAndReadFloats(n);
-		W1 = loader.AllocateAndReadFloats(HiddenDim * n);
-		W2 = loader.AllocateAndReadFloats(HiddenDim * n);
-		W3 = loader.AllocateAndReadFloats(HiddenDim * n);
-		RmsFinalWeight = loader.AllocateAndReadFloats(Dim);
+		WQ = loader.AllocateAndReadWeights(Heads * headSize * n);
+		WK = loader.AllocateAndReadWeights(KVHeads * headSize * n);
+		WV = loader.AllocateAndReadWeights(KVHeads * headSize * n);
+		WO = loader.AllocateAndReadWeights(Heads * headSize * n);
+		RmsFfnWeight = loader.AllocateAndReadWeights(n);
+		W1 = loader.AllocateAndReadWeights(HiddenDim * n);
+		W2 = loader.AllocateAndReadWeights(HiddenDim * n);
+		W3 = loader.AllocateAndReadWeights(HiddenDim * n);
+		RmsFinalWeight = loader.AllocateAndReadWeights(Dim);
 		if (sharedWeights)
 			WCls = TokenEmbeddingTable;
 		else
-			WCls = loader.AllocateAndReadFloats(VocabSize * Dim);
+			WCls = loader.AllocateAndReadWeights(VocabSize * Dim);
 
 		X = new float[Dim];
 		XB = new float[Dim];
@@ -99,14 +99,16 @@ class Transformer
 
 	internal int GetSeqLen() => SeqLen;
 
-	static void RmsNorm(float[]! o, float[] x, float[] weight, int weightOffset, int size)
+	static float ExpandWeight(short i) => BitConverter.Int32BitsToSingle(i << 16);
+
+	static void RmsNorm(float[]! o, float[] x, short[] weight, int weightOffset, int size)
 	{
 		float ss =0;
 		for (int i = 0; i < size; i++)
 			ss += x[i] * x[i];
 		ss = 1 / Math.Sqrt(ss / size + 1e-5);
 		for (int i = 0; i < size; i++)
-			o[i] = ss * x[i] * weight[weightOffset + i];
+			o[i] = ss * x[i] * ExpandWeight(weight[weightOffset + i]);
 	}
 
 	internal static void SoftMax(float[]! x, int xOffset, int size)
@@ -123,7 +125,7 @@ class Transformer
 			x[xOffset + i] /= sum;
 	}
 
-	static void MatMul(float[]! o, int oOffset, float[] x, float[] w, int wOffset, int n, int d)
+	static void MatMul(float[]! o, int oOffset, float[] x, short[] w, int wOffset, int n, int d)
 	{
 		int i;
 #if OPENMP
@@ -134,7 +136,7 @@ class Transformer
 		for (i = 0; i < d; i++) {
 			float v = 0;
 			for (int j = 0; j < n; j++)
-				v += w[wOffset + i * n + j] * x[j];
+				v += ExpandWeight(w[wOffset + i * n + j]) * x[j];
 			o[oOffset + i] = v;
 		}
 	}
@@ -144,7 +146,8 @@ class Transformer
 		int kvDim = Dim * KVHeads / Heads;
 		int kvMul = Heads / KVHeads;
 		int headSize = Dim / Heads;
-		TokenEmbeddingTable.CopyTo(token * Dim, X, 0, Dim);
+		for (int i = 0; i < Dim; i++)
+			X[i] = ExpandWeight(TokenEmbeddingTable[token * Dim + i]);
 		for (int l = 0; l < Layers; l++) {
 			RmsNorm(XB, X, RmsAttWeight, l * Dim, Dim);
 
