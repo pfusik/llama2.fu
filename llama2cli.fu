@@ -12,7 +12,7 @@ public static class Llama2Cli
 		Console.Error.WriteLine("Options:");
 		Console.Error.WriteLine("  -t <float>  temperature in [0,inf], default 1.0");
 		Console.Error.WriteLine("  -s <int>    random seed");
-		Console.Error.WriteLine("  -n <int>    number of steps to run for, default 256. 0 = max_seq_len");
+		Console.Error.WriteLine("  -n <int>    number of steps to run for, default max_seq_len");
 		Console.Error.WriteLine("  -i <string> input prompt");
 		Console.Error.WriteLine("  -z <string> optional path to custom tokenizer");
 		Console.Error.WriteLine("  -m <string> mode: generate|chat, default: generate");
@@ -72,7 +72,7 @@ public static class Llama2Cli
 		string modelPath = args[0];
 		float temperature = 1;
 		long seed = 0;
-		int steps = 256;
+		int steps = 0;
 		string? prompt = null;
 		string tokenizerPath = "tokenizer.bin";
 		string mode = "generate";
