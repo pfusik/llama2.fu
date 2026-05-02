@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Piotr Fusik
 // SPDX-License-Identifier: MIT
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef _WIN32
