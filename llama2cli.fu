@@ -19,6 +19,12 @@ public static class Llama2Cli
 		Console.Error.WriteLine("  -y <string> (optional) system prompt in chat mode");
 	}
 
+	static void Write(string s)
+	{
+		Console.Write(s);
+		Console.Out.Flush();
+	}
+
 	static void Generate(Llama2! obj, string prompt, int steps)
 	{
 		obj.SetRawPrompt(prompt);
@@ -28,7 +34,7 @@ public static class Llama2Cli
 			string? text = obj.ForwardGenerate(pos++);
 			if (text == null)
 				break;
-			Console.Write(pos == 2 ? text.Substring(1) : text);
+			Write(pos == 2 ? text.Substring(1) : text);
 		}
 		Console.WriteLine();
 		float time = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - startTime;
@@ -42,23 +48,23 @@ public static class Llama2Cli
 			if (userTurn) {
 				string() systemPromptRead;
 				if (pos == 0 && systemPrompt == null) {
-					Console.Write("Enter system prompt (optional): ");
+					Write("Enter system prompt (optional): ");
 					systemPromptRead = Console.ReadLine();
 					systemPrompt = systemPromptRead;
 				}
 				string() promptRead;
 				if (pos != 0 || prompt == null) {
-					Console.Write("User: ");
+					Write("User: ");
 					promptRead = Console.ReadLine();
 					prompt = promptRead;
 				}
 				obj.SetChatPrompt(prompt, pos == 0 ? systemPrompt : "");
-				Console.Write("Assistant: ");
+				Write("Assistant: ");
 			}
 			string? token = obj.ForwardChat(pos);
 			userTurn = token == null;
 			if (token != null)
-				Console.Write(token);
+				Write(token);
 		}
 		Console.WriteLine();
 	}
