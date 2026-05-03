@@ -1,4 +1,4 @@
-CFLAGS = -Wall -O2 -fopenmp
+CFLAGS = -Wall -O2
 
 ifeq ($(OS),Windows_NT)
 EXEEXT = .exe
