@@ -88,12 +88,20 @@ static void Loader_Close(Loader *self)
 	fclose(self->fp);
 }
 
-int main(int argc, char **argv)
-{
 #ifdef _WIN32
+int wmain(int argc, wchar_t **wargv)
+{
+	char **argv = malloc(argc * sizeof(char *));
+	for (int i = 1; i < argc; i++) {
+		int size = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, NULL, 0, NULL, NULL);
+		argv[i] = malloc(size);
+		WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, argv[i], size, NULL, NULL);
+	}
 	SetConsoleCP(CP_UTF8);
 	SetConsoleOutputCP(CP_UTF8);
 #else
+int main(int argc, char **argv)
+{
 	setlocale(LC_ALL, "C.UTF-8");
 #endif
 	static const LoaderVtbl vtbl = {

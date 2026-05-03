@@ -2,6 +2,7 @@ CFLAGS = -Wall -O2
 
 ifeq ($(OS),Windows_NT)
 EXEEXT = .exe
+CFLAGS += -fopenmp -municode
 endif
 
 llama2fu$(EXEEXT): main.c llama2cli.c
