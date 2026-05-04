@@ -266,13 +266,21 @@ class Tokenizer
 		PromptIndex = 0;
 		Prompt.Clear();
 		Prompt.Add(1); // bos
-		if (text.Length > 0)
-			Prompt.Add(VocabToToken[" "]);
-		foreach (int c in text) {
-			byte[1] b;
-			b[0] = c;
-			string() s = Encoding.UTF8.GetString(b, 0, 1);
-			Prompt.Add(VocabToToken.ContainsKey(s) ? VocabToToken[s] : 3 + (c & 0xff));
+		nint length = text.Length;
+		if (length == 0)
+			return;
+		Prompt.Add(VocabToToken[" "]);
+		for (nint i = 0; i < length; i++) {
+			string() s = text.Substring(i, 1);
+			if (VocabToToken.ContainsKey(s))
+				Prompt.Add(VocabToToken[s]);
+			else {
+				byte[6] bytes;
+				Encoding.UTF8.GetBytes(s, bytes, 0);
+				int nBytes = Encoding.UTF8.GetByteCount(s);
+				for (int j = 0; j < nBytes; j++)
+					Prompt.Add(3 + bytes[j]);
+			}
 		}
 		for (;;) {
 			float bestScore = Math.NegativeInfinity;
