@@ -1,5 +1,4 @@
 // main.c - Llama 2 LLM command-line interface 
-// Copyright (c) 2023 Andrej (original C code: https://github.com/karpathy/llama2.c)
 // Copyright (c) 2026 Piotr Fusik
 // SPDX-License-Identifier: MIT
 

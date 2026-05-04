@@ -80,7 +80,7 @@ public static class Llama2Cli
 		long seed = 0;
 		int steps = 0;
 		string? prompt = null;
-		string tokenizerPath = "tokenizer.bin";
+		string tokenizerPath = "../tokenizer.bin";
 		string mode = "generate";
 		string? systemPrompt = null;
 
