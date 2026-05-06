@@ -8,9 +8,9 @@ public abstract class Loader
 	public abstract void Open!(string path);
 	public abstract int ReadInt!();
 	public abstract float ReadFloat!();
-	public abstract void ReadWeights!(short[]! a, nint n);
+	protected abstract void ReadWeights!(short[]! a, nint n);
 	public abstract void SkipBytes!(nint n);
-	internal short[]# AllocateAndReadWeights!(nint n)
+	public short[]# AllocateAndReadWeights!(nint n)
 	{
 		short[]# a = new short[n];
 		ReadWeights(a, n);

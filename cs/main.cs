@@ -19,7 +19,7 @@ class DotNetLoader : Loader
 
 	public override float ReadFloat() => BR.ReadSingle();
 
-	public override void ReadWeights(short[] a, int n)
+	protected override void ReadWeights(short[] a, int n)
 	{
 		const int bufSize = 4096;
 		byte[] buf = new byte[bufSize * 2];
