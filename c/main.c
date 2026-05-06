@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef _WIN32
@@ -17,7 +18,7 @@ typedef struct {
 	void (*open)(Loader *self, const char *path);
 	int (*readInt)(Loader *self);
 	float (*readFloat)(Loader *self);
-	void (*readWeights)(Loader *self, short *a, ptrdiff_t n);
+	void (*readWeights)(Loader *self, int16_t *a, ptrdiff_t n);
 	void (*skipBytes)(Loader *self, ptrdiff_t n);
 	char *(*readString)(Loader *self);
 	void (*close)(Loader *self);
@@ -59,9 +60,9 @@ static float Loader_ReadFloat(Loader *self)
 	return result;
 }
 
-static void Loader_ReadWeights(Loader *self, short *a, ptrdiff_t n)
+static void Loader_ReadWeights(Loader *self, int16_t *a, ptrdiff_t n)
 {
-	return Loader_Read(self, a, n * sizeof(short));
+	return Loader_Read(self, a, n * sizeof(int16_t));
 }
 
 static void Loader_SkipBytes(Loader *self, ptrdiff_t n)
