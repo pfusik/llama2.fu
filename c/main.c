@@ -19,7 +19,6 @@ typedef struct {
 	int (*readInt)(Loader *self);
 	float (*readFloat)(Loader *self);
 	void (*readWeights)(Loader *self, int16_t *a, ptrdiff_t n);
-	void (*skipBytes)(Loader *self, ptrdiff_t n);
 	char *(*readString)(Loader *self);
 	void (*close)(Loader *self);
 } LoaderVtbl;
@@ -65,15 +64,6 @@ static void Loader_ReadWeights(Loader *self, int16_t *a, ptrdiff_t n)
 	return Loader_Read(self, a, n * sizeof(int16_t));
 }
 
-static void Loader_SkipBytes(Loader *self, ptrdiff_t n)
-{
-#ifdef _WIN32
-	_fseeki64(self->fp, n, SEEK_CUR);
-#else
-	fseek(self->fp, n, SEEK_CUR);
-#endif
-}
-
 static char *Loader_ReadString(Loader *self)
 {
 	int n = Loader_ReadInt(self);
@@ -109,7 +99,6 @@ int main(int argc, char **argv)
 		Loader_ReadInt,
 		Loader_ReadFloat,
 		Loader_ReadWeights,
-		Loader_SkipBytes,
 		Loader_ReadString,
 		Loader_Close
 	};

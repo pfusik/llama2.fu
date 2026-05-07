@@ -48,11 +48,6 @@ public:
 		return result;
 	}
 
-	void skipBytes(ptrdiff_t n) override
-	{
-		s.seekg(n, std::ifstream::cur);
-	}
-
 	std::string readString() override
 	{
 		auto n = readInt();

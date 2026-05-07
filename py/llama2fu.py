@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: MIT
 
 import array
-import os
 import struct
 import sys
 
@@ -26,9 +25,6 @@ class PythonLoader(llama2cli.Loader):
 		a = array.array("h")
 		a.fromfile(self.f, n)
 		return a
-
-	def skip_bytes(self, n: int) -> None:
-		self.f.seek(n, os.SEEK_CUR)
 
 	def read_string(self) -> str:
 		return self.f.read(self.read_int()).decode("utf8")

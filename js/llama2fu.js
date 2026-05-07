@@ -39,11 +39,6 @@ class NodeLoader extends Loader
 		this.#read(a);
 	}
 
-	skipBytes(n)
-	{
-		this.#read(new Uint8Array(n));
-	}
-
 	readString()
 	{
 		const b = new Uint8Array(this.readInt());

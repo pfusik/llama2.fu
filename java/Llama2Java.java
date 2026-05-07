@@ -72,17 +72,6 @@ class JavaLoader extends Loader
 	}
 
 	@Override
-	public void skipBytes(int n)
-	{
-		try {
-			channel.position(channel.position() + n);
-		}
-		catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-	}
-
-	@Override
 	public String readString()
 	{
 		return StandardCharsets.UTF_8.decode(read(readInt())).toString();

@@ -32,8 +32,6 @@ class DotNetLoader : Loader
 		}
 	}
 
-	public override void SkipBytes(int n) => BR.BaseStream.Seek(n, SeekOrigin.Current);
-
 	public override string ReadString() => Encoding.UTF8.GetString(BR.ReadBytes(BR.ReadInt32()));
 
 	public override void Close() => BR.Close();

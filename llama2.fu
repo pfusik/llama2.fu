@@ -9,7 +9,6 @@ public abstract class Loader
 	public abstract int ReadInt!();
 	public abstract float ReadFloat!();
 	protected abstract void ReadWeights!(short[]! a, nint n);
-	public abstract void SkipBytes!(nint n);
 	public short[]# AllocateAndReadWeights!(nint n)
 	{
 		short[]# a = new short[n];
@@ -242,7 +241,7 @@ class Tokenizer
 		VocabScores = new float[vocabSize];
 		VocabToToken.Clear();
 		VocabSize = vocabSize;
-		loader.SkipBytes(4); // MaxTokenLength
+		loader.ReadInt(); // MaxTokenLength
 		for (int i = 0; i < vocabSize; i++) {
 			VocabScores[i] = loader.ReadFloat();
 			Vocab[i] = loader.ReadString();
