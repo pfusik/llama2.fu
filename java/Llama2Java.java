@@ -54,7 +54,21 @@ class JavaLoader extends Loader
 	@Override
 	protected void readWeights(short[] a, int n)
 	{
-		read(n << 1).asShortBuffer().get(a);
+		final int BUF_SIZE = 4096;
+		ByteBuffer buf = ByteBuffer.allocate(BUF_SIZE << 1).order(ByteOrder.LITTLE_ENDIAN);
+		for (int i = 0; i < n; i += BUF_SIZE) {
+			int m = Math.min(n - i, BUF_SIZE);
+			buf.limit(m << 1);
+			try {
+				if (channel.read(buf) != m << 1)
+					throw new EOFException();
+			}
+			catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+			buf.flip().asShortBuffer().get(a, i, m);
+			buf.clear();
+		}
 	}
 
 	@Override
