@@ -88,7 +88,7 @@ class Transformer
 		HB = new float[HiddenDim];
 		HB2 = new float[HiddenDim];
 		Q = new float[Dim];
-		Att = new float[Heads * SeqLen];
+		Att = new float[SeqLen];
 		Logits = new float[VocabSize];
 		int cacheSize = Dim * KVHeads / Heads * Layers * SeqLen;
 		KeyCache = new float[cacheSize];
@@ -111,18 +111,18 @@ class Transformer
 			o[i] = ss * x[i] * ExpandWeight(weight[weightOffset + i]);
 	}
 
-	internal static void SoftMax(float[]! x, int xOffset, int size)
+	internal static void SoftMax(float[]! x, int size)
 	{
 		float max = x[0];
 		for (int i = 1; i < size; i++) {
-			if (max < x[xOffset + i])
-				max = x[xOffset + i];
+			if (max < x[i])
+				max = x[i];
 		}
 		float sum = 0;
 		for (int i = 0; i < size; i++)
-			sum += x[xOffset + i] = Math.Exp(x[xOffset + i] - max);
+			sum += x[i] = Math.Exp(x[i] - max);
 		for (int i = 0; i < size; i++)
-			x[xOffset + i] /= sum;
+			x[i] /= sum;
 	}
 
 	static void MatMul(float[]! o, int oOffset, float[] x, short[] w, int wOffset, int n, int d)
@@ -143,11 +143,13 @@ class Transformer
 
 	public float[]! Forward!(int token, int pos)
 	{
+		for (int i = 0; i < Dim; i++)
+			X[i] = ExpandWeight(TokenEmbeddingTable[token * Dim + i]);
+
 		int kvDim = Dim * KVHeads / Heads;
 		int kvMul = Heads / KVHeads;
 		int headSize = Dim / Heads;
-		for (int i = 0; i < Dim; i++)
-			X[i] = ExpandWeight(TokenEmbeddingTable[token * Dim + i]);
+
 		for (int l = 0; l < Layers; l++) {
 			RmsNorm(XB, X, RmsAttWeight, l * Dim, Dim);
 
@@ -177,21 +179,18 @@ class Transformer
 
 			for (int h = 0; h < Heads; h++) {
 				int q = h * headSize;
-				int att = h * SeqLen;
 				for (int t = 0; t <= pos; t++) {
 					k = loff + t * kvDim + h / kvMul * headSize;
 					float score = 0;
 					for (int i = 0; i < headSize; i++)
 						score += Q[q + i] * KeyCache[k + i];
-					Att[att + t] = score / Math.Sqrt(headSize);
+					Att[t] = score / Math.Sqrt(headSize);
 				}
-
-				SoftMax(Att, att, pos + 1);
-
+				SoftMax(Att, pos + 1);
 				XB.Fill(0, q, headSize);
 				for (int t = 0; t <= pos; t++) {
 					int v = loff + t * kvDim + h / kvMul * headSize;
-					float a = Att[att + t];
+					float a = Att[t];
 					for (int i = 0; i < headSize; i++)
 						XB[q + i] += a * ValueCache[v + i];
 				}
@@ -218,6 +217,7 @@ class Transformer
 			for (int i = 0; i < Dim; i++)
 				X[i] += XB[i];
 		}
+
 		RmsNorm(X, X, RmsFinalWeight, 0, Dim);
 		MatMul(Logits, 0, X, WCls, 0, Dim, VocabSize);
 		return Logits;
@@ -361,7 +361,7 @@ class Sampler
 			return ArgMax(logits, n);
 		for (int i = 0; i < n; i++)
 			logits[i] /= Temperature;
-		Transformer.SoftMax(logits, 0, n);
+		Transformer.SoftMax(logits, n);
 		float coin = NextRandom();
 		float cdf = 0;
 		for (int i = 0; i < n; i++) {
