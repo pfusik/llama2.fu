@@ -42,13 +42,13 @@ class JavaLoader extends Loader
 	@Override
 	public int readInt()
 	{
-		return read(4).asIntBuffer().get();
+		return read(4).getInt();
 	}
 
 	@Override
 	public float readFloat()
 	{
-		return read(4).asFloatBuffer().get();
+		return read(4).getFloat();
 	}
 
 	@Override
