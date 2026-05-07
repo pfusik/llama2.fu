@@ -141,7 +141,7 @@ class Transformer
 		}
 	}
 
-	public float[]! Forward!(int token, int pos)
+	public void Forward!(int token, int pos)
 	{
 		for (int i = 0; i < Dim; i++)
 			X[i] = ExpandWeight(TokenEmbeddingTable[token * Dim + i]);
@@ -217,7 +217,10 @@ class Transformer
 			for (int i = 0; i < Dim; i++)
 				X[i] += XB[i];
 		}
+	}
 
+	public float[]! GetLogits!()
+	{
 		RmsNorm(X, X, RmsFinalWeight, 0, Dim);
 		MatMul(Logits, 0, X, WCls, 0, Dim, VocabSize);
 		return Logits;
@@ -423,9 +426,9 @@ public class Llama2
 		if (pos != 0 && Token == 1)
 			return null;
 		string text = pos == 0 ? "" : Tok.Decode(Token);
-		float[]! logits = Trans.Forward(Token, pos);
+		Trans.Forward(Token, pos);
 		if (!Tok.HasPromptToken())
-			Token = Samp.Sample(logits, Trans.GetVocabSize());
+			Token = Samp.Sample(Trans.GetLogits(), Trans.GetVocabSize());
 		return text;
 	}
 
@@ -440,12 +443,12 @@ public class Llama2
 	public string? ForwardChat!(int pos)
 	{
 		FeedPrompt();
-		float[]! logits = Trans.Forward(Token, pos);
+		Trans.Forward(Token, pos);
 		if (Tok.HasPromptToken())
 			return "";
 		if (Token == 2)
 			return null;
-		Token = Samp.Sample(logits, Trans.GetVocabSize());
+		Token = Samp.Sample(Trans.GetLogits(), Trans.GetVocabSize());
 		return Token == 2 ? "\n" : Tok.Decode(Token);
 	}
 }
