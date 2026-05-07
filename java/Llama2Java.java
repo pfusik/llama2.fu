@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Piotr Fusik
 // SPDX-License-Identifier: MIT
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -29,13 +30,13 @@ class JavaLoader extends Loader
 	{
 		ByteBuffer buf = ByteBuffer.allocate(n).order(ByteOrder.LITTLE_ENDIAN);
 		try {
-			channel.read(buf);
+			if (channel.read(buf) != n)
+				throw new EOFException();
 		}
 		catch (IOException e) {
 			throw new RuntimeException(e);
 		}
-		buf.flip();
-		return buf;
+		return buf.flip();
 	}
 
 	@Override
