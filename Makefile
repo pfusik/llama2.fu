@@ -1,4 +1,4 @@
-all: c cpp cs java js py
+all: c cpp cs d java js py
 
 c cpp java js py:
 	$(MAKE) -C $@
@@ -6,4 +6,7 @@ c cpp java js py:
 cs:
 	dotnet build cs -c Release
 
-.PHONY: c cpp cs java js py
+d:
+	dub build --root=d -b release
+
+.PHONY: c cpp cs d java js py

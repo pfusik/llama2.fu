@@ -1,0 +1,8 @@
+name "llama2fu"
+authors "Piotr Fusik"
+license "mit"
+
+sourcePaths "source"
+sourcePaths "transpiled"
+
+preGenerateCommands "fut -o transpiled/llama2cli.d ../llama2.fu ../llama2cli.fu"
