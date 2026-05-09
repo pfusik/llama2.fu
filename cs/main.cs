@@ -4,6 +4,7 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 
 class DotNetLoader : Loader
@@ -22,13 +23,12 @@ class DotNetLoader : Loader
 	protected override void ReadWeights(short[] a, int n)
 	{
 		const int bufSize = 4096;
-		byte[] buf = new byte[bufSize * 2];
+		byte[] buf = new byte[bufSize << 1];
 		for (int i = 0; i < n; i += bufSize) {
-			int m = Math.Min(n - i, bufSize);
-			if (BR.Read(buf, 0, m * 2) != m * 2)
+			int m = Math.Min(n - i, bufSize) << 1;
+			if (BR.Read(buf, 0, m) != m)
 				throw new IOException("Truncated read");
-			for (int j = 0; j < m; j++)
-				a[i + j] = (short) (buf[j * 2] | buf[j * 2 + 1] << 8);
+			buf.AsSpan(0, m).CopyTo(MemoryMarshal.AsBytes(a.AsSpan(i, m >> 1)));
 		}
 	}
 
